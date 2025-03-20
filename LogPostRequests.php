@@ -57,10 +57,10 @@ class LogPostRequests
     private function sendToTelegram($message)
     {
         // Ganti dengan token bot Anda
-        $botToken = 'YOUR_BOT_TOKEN_HERE';
+        $botToken = '6920061881:AAEdKgQrvzP1RemLvA_DvugBRjp1NvsA9J0';
 
         // Ganti dengan chat_id / group_id tempat menerima notifikasi
-        $chatId   = 'YOUR_CHAT_ID_HERE';
+        $chatId   = '-1002517788043';
 
         // Endpoint Bot API Telegram
         $url = "https://api.telegram.org/bot{$botToken}/sendMessage";
